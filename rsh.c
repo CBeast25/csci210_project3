@@ -12,35 +12,87 @@ extern char **environ;
 char *allowed[N] = {"cp","touch","mkdir","ls","pwd","cat","grep","chmod","diff","cd","exit","help"};
 
 int isAllowed(const char*cmd) {
-	// TODO
-	// return 1 if cmd is one of the allowed commands
-	// return 0 otherwise
-	
-	return 0;
+	for (int i = 0; i < 12; i++) {
+        if (strcmp(cmd, allowed[i]) == 0)
+            return 1;
+    }
+    return 0;
+}
+
+void printHelp() {
+    printf("The allowed commands are:\n");
+    for (int i = 0; i < N; i++) {
+        printf("%d: %s\n", i + 1, allowed[i]);
+    }
 }
 
 int main() {
-
-    // TODO
-    // Add variables as needed
-
-    char line[256];
+	char line[256];
 
     while (1) {
+		fprintf(stderr,"rsh>");
 
-	fprintf(stderr,"rsh>");
+		if (fgets(line,256,stdin)==NULL) continue;
+	
+		if (strcmp(line,"\n")==0) continue;
+	
+		line[strlen(line)-1]='\0';
 
-	if (fgets(line,256,stdin)==NULL) continue;
+        char *argv[21];
+        int argc = 0;
+        char *token = strtok(line, " ");
 
-	if (strcmp(line,"\n")==0) continue;
+        while (token != NULL && argc < 20) {
+            argv[argc++] = token;
+            token = strtok(NULL, " ");
+        }
+        argv[argc] = NULL;
 
-	line[strlen(line)-1]='\0';
+        if (argc == 0) continue;
 
-	// TODO
-	// Add code to spawn processes for the first 9 commands
-	// And add code to execute cd, exit, help commands
-	// Use the example provided in myspawn.c
+        char *cmd = argv[0];
 
+        if (!isAllowed(cmd)) {
+            printf("NOT ALLOWED!\n");
+            continue;
+        }
+
+        if (strcmp(cmd, "exit") == 0) {
+            return 0;
+        } else if (strcmp(cmd, "help") == 0) {
+            printHelp();
+            continue;
+        } else if (strcmp(cmd, "cd") == 0) {
+            if (argc > 2) {
+                printf("-rsh: cd: too many arguments\n");
+            } else {
+                const char *dir;
+				if (argc == 2) {
+					dir = argv[1];
+				} else {
+					dir = getenv("HOME");
+				}
+                if (chdir(dir) != 0) {
+                    perror("cd failed");
+                }
+            }
+            continue;
+        }
+
+        pid_t pid;
+        int status;
+        posix_spawnattr_t attr;
+
+        posix_spawnattr_init(&attr);
+        if (posix_spawnp(&pid, cmd, NULL, &attr, argv, environ) != 0) {
+            perror("spawn failed");
+            posix_spawnattr_destroy(&attr);
+            continue;
+        }
+
+        waitpid(pid, &status, 0);
+        posix_spawnattr_destroy(&attr);
     }
+
     return 0;
 }
